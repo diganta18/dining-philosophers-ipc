@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dining Philosophers: what the semaphores do</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f7f6f2;--fg:#1d1d1b;--mut:#66665f;--card:#fff;--bd:#d9d8d0;--blue:#3a7bbf;--amb:#d19015;--red:#d0453a;--grn:#2c9a58;--gry:#a2a29a;--hi:#fff1b8;--code:#f1f0ea;--on:#fff;--on2:#1d1d1b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151514;--fg:#ecece6;--mut:#a0a09a;--card:#1f1f1d;--bd:#363632;--blue:#6aa6e6;--amb:#e8b042;--red:#ef7468;--grn:#4cc07c;--gry:#6d6d66;--hi:#4a4018;--code:#262623;--on:#111;--on2:#111}}
+:root[data-theme="dark"]{--bg:#151514;--fg:#ecece6;--mut:#a0a09a;--card:#1f1f1d;--bd:#363632;--blue:#6aa6e6;--amb:#e8b042;--red:#ef7468;--grn:#4cc07c;--gry:#6d6d66;--hi:#4a4018;--code:#262623;--on:#111;--on2:#111}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font:600 22px/1.25 Georgia,"Times New Roman",serif;margin:4px 0 4px}
+p.sub{margin:0 0 12px;color:var(--mut);max-width:70ch}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+button,select{font:inherit;font-size:14px;padding:7px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--fg);cursor:pointer}
+button.main{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+label{font-size:14px;display:flex;gap:6px;align-items:center}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media(max-width:780px){.grid{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.box h2{font:600 15px/1.3 system-ui,sans-serif;margin:0 0 8px}
+#banner{min-height:44px;padding:9px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);margin-bottom:14px;font-size:15px}
+#banner.dead{border-color:var(--red);background:color-mix(in srgb,var(--red) 14%,var(--card))}
+#banner.ok{border-color:var(--grn);background:color-mix(in srgb,var(--grn) 14%,var(--card))}
+svg{width:100%;max-width:380px;display:block;margin:0 auto}
+svg text{font-family:system-ui,sans-serif;fill:var(--fg)}
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+.chip{padding:6px 4px;border:2px solid var(--bd);border-radius:8px;text-align:center;font-size:12px;line-height:1.3;background:var(--card)}
+.chip b{display:block;font-size:14px}
+.chip.sel{border-color:var(--fg)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:5px 6px;border-bottom:1px solid var(--bd);text-align:left}
+th{font-weight:600;color:var(--mut)}
+.v{font:600 15px ui-monospace,Menlo,Consolas,monospace}
+.code{font:13px/1.65 ui-monospace,Menlo,Consolas,monospace;background:var(--code);border-radius:8px;padding:6px 0;overflow-x:auto}
+.ln{display:block;padding:0 10px;white-space:pre;border-left:4px solid transparent}
+.ln.on{background:var(--hi);border-left-color:var(--amb)}
+.ln.blk{background:color-mix(in srgb,var(--red) 22%,var(--code));border-left-color:var(--red)}
+.ln.off{opacity:.45;text-decoration:line-through}
+#why{margin:10px 0 0;font-size:14px}
+#log{list-style:none;margin:0;padding:0;font-size:13.5px;max-height:330px;overflow:auto}
+#log li{padding:5px 0;border-bottom:1px solid var(--bd)}
+#log li:first-child{font-weight:600}
+.k{display:inline-block;min-width:26px;color:var(--mut);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.full{grid-column:1/-1}
+</style></head><body><div class="wrap">
+<h1>Dining Philosophers: watch the semaphores work</h1>
+<p class="sub">This runs the same logic as your philosopher.c, one line at a time. Press Step to run one line for the next philosopher, or press a philosopher below the table to run his next line yourself.</p>
+<div class="bar">
+<button class="main" id="bStep">Step</button>
+<button id="bPlay">Play</button>
+<button id="bReset">Reset</button>
+<select id="preset" aria-label="Scenario">
+<option value="normal">Normal run</option>
+<option value="safe">All hungry at once, room ON</option>
+<option value="dead">All hungry at once, room OFF</option>
+</select>
+<select id="speed" aria-label="Speed"><option value="1100">Slow</option><option value="600" selected>Medium</option><option value="250">Fast</option></select>
+<label><input type="checkbox" id="roomOn" checked> Use the /room semaphore</label>
+</div>
+<div id="banner"></div>
+<div class="grid">
+<div class="box"><h2>The table</h2><svg id="tbl" viewBox="0 0 320 320" role="img" aria-label="Five philosophers around a table"></svg>
+<div class="chips" id="chips"></div>
+<div class="legend"><span><i style="background:var(--blue)"></i>thinking</span><span><i style="background:var(--amb)"></i>hungry</span><span><i style="background:var(--red)"></i>sleeping in a queue</span><span><i style="background:var(--grn)"></i>eating</span><span><i style="background:var(--gry)"></i>done</span></div></div>
+<div class="box"><h2>The six named semaphores</h2>
+<table><thead><tr><th>Name</th><th>Value</th><th>Held by</th><th>Waiting</th></tr></thead><tbody id="sems"></tbody></table>
+<p class="sub" style="margin:10px 0 0;font-size:13.5px">A chopstick is free at 1 and taken at 0. The room starts at 4, so a fifth philosopher is stopped at the door.</p></div>
+<div class="box"><h2 id="ch">Code of the selected philosopher</h2><div class="code" id="code"></div><p id="why"></p></div>
+<div class="box"><h2>What just happened</h2><ul id="log"></ul></div>
+</div></div>
+<script>
+const N=5,R=3,$=id=>document.getElementById(id);
+const K=[['think'],['hungry'],['wait','room'],['wait','L'],['wait','R'],['eat'],['fin'],['post','L'],['post','R'],['post','room']];
+const T=['printf("thinking");  sleep(1 + id % 3);','printf("hungry");','sem_wait(room);','sem_wait(chopstick[left]);','sem_wait(chopstick[right]);','printf("EATING");  sleep(2);','printf("finished eating");','sem_post(chopstick[left]);','sem_post(chopstick[right]);','sem_post(room);'];
+const W=['Thinking is just sleeping. No semaphore is touched, so the other philosophers keep running.',
+'Only a print. From here on he wants two chopsticks.',
+'He asks the room for a seat. If the value is above 0 it drops by 1 and he continues. If it is 0 the operating system puts him to sleep in the room’s queue. This is what keeps at most 4 philosophers competing, so a circular wait can never close.',
+'He takes his left chopstick: 1 becomes 0. If a neighbour already holds it (value 0), he sleeps until that neighbour does sem_post.',
+'Same for the right chopstick. Holding the left one while waiting for the right one is the “hold and wait” that could cause deadlock without the room.',
+'The critical section. He holds both chopsticks, so both semaphores are 0 and neither neighbour can start eating.',
+'This line is printed before the release, so the log order is always honest.',
+'sem_post on the left chopstick: 0 becomes 1, or the chopstick is handed straight to a neighbour who was sleeping for it.',
+'sem_post on the right chopstick, the same idea.',
+'He frees his seat in the room. A philosopher who was stuck at the door can now come in.'];
+let S,P,cur,cursor,roomOn,timer,meals,lg,preset;
+const nm=i=>i<5?'chopstick'+i:'room';
+function reset(f){preset=$('preset').value;if(f)$('roomOn').checked=preset!=='dead';
+roomOn=$('roomOn').checked;stop();
+S=[...Array(6)].map((_,i)=>({v:i<5?1:4,q:[],h:[]}));
+P=[...Array(N)].map(()=>({pc:preset==='normal'?0:1,r:1,t:null,b:-1,d:0}));
+cur=0;cursor=0;meals=0;lg=[];add('·','Ready. All semaphores are at their start values.');render()}
+function add(w,m){lg.unshift([w,m]);if(lg.length>40)lg.pop()}
+function ix(p,tag){return tag==='room'?5:tag==='L'?p:(p+1)%N}
+function step(p){const q=P[p],[k,tag]=K[q.pc],me='P'+p;
+if(k==='think'||k==='eat'){
+if(q.t==null){q.t=k==='think'?1+p%3:2;return k==='think'?`${me} prints “thinking” and calls sleep(${q.t}). No semaphore is touched.`:`${me} is EATING and calls sleep(2). He holds chopsticks ${p} and ${(p+1)%N}, so neither neighbour can eat.`}
+q.t--;if(q.t>0)return `${me} is still sleeping.`;q.t=null;q.pc++;if(k==='eat')meals++;return k==='eat'?`${me} wakes up. The meal is over.`:`${me} wakes up and gets hungry.`}
+if(k==='hungry'||k==='fin'){q.pc++;return k==='hungry'?`${me} prints “hungry”.`:`${me} prints “finished eating”, then releases.`}
+const i=ix(p,tag),s=S[i],n='/'+nm(i);
+if(k==='wait'){
+if(i===5&&!roomOn){q.pc++;return `${me}: the room is switched off, so this line is skipped.`}
+if(s.v>0){s.v--;s.h.push(p);q.pc++;return `sem_wait(${n}) by ${me}: value ${s.v+1} → ${s.v}. He gets it and continues.`}
+q.b=i;s.q.push(p);return `sem_wait(${n}) by ${me}: the value is 0, so he cannot continue. The OS puts him to sleep in the queue of ${n}.`}
+let m;
+if(i===5&&!roomOn)m=`${me}: the room is switched off, so this line is skipped.`;
+else{const j=s.h.indexOf(p);if(j>=0)s.h.splice(j,1);
+if(s.q.length){const w=s.q.shift();P[w].b=-1;P[w].pc++;s.h.push(w);m=`sem_post(${n}) by ${me}: P${w} was sleeping for it, so he is woken up and gets it at once. The value stays ${s.v}.`}
+else{s.v++;m=`sem_post(${n}) by ${me}: value ${s.v-1} → ${s.v}. It is free again.`}}
+q.pc++;if(q.pc>=10){q.pc=0;q.r++;if(q.r>R)q.d=1}return m}
+function pick(){for(let k=0;k<N;k++){const p=(cursor+k)%N;if(!P[p].d&&P[p].b<0)return p}return -1}
+function run(p){cur=p;add('P'+p,step(p));cursor=(p+1)%N;render()}
+function tick(){const p=pick();if(p<0){stop();render();return}run(p)}
+function stop(){clearInterval(timer);timer=null;if($('bPlay'))$('bPlay').textContent='Play'}
+function status(q){if(q.d)return['done','var(--gry)'];if(q.b>=0)return['sleeping','var(--red)'];
+if(q.pc===0)return['thinking','var(--blue)'];if(q.pc<5)return['hungry','var(--amb)'];return['eating','var(--grn)']}
+function render(){
+const a=-90,pos=(i,r,o=0)=>{const t=(a+72*i+o)*Math.PI/180;return[160+r*Math.cos(t),160+r*Math.sin(t)]};
+let g='';
+for(let i=0;i<N;i++){const[x1,y1]=pos(i,62,-36),[x2,y2]=pos(i,100,-36),[lx,ly]=pos(i,121,-36),h=S[i].h.length;
+g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${h?'var(--grn)':'var(--gry)'}" stroke-width="${h?6:4}" stroke-linecap="round"/><text x="${lx}" y="${ly+4}" font-size="11" text-anchor="middle">c${i}${h?'·P'+S[i].h[0]:''}</text>`}
+for(let i=0;i<N;i++){const[x,y]=pos(i,122),[l,c]=status(P[i]);
+g+=`<circle cx="${x}" cy="${y}" r="25" fill="${c}" stroke="${i===cur?'var(--fg)':'none'}" stroke-width="3"/><text x="${x}" y="${y+5}" font-size="14" font-weight="700" text-anchor="middle" style="fill:${l==='hungry'||l==='done'?'var(--on2)':'var(--on)'}">P${i}</text>`}
+g+=`<circle cx="160" cy="160" r="44" fill="none" stroke="var(--bd)" stroke-width="2"/><text x="160" y="146" font-size="12" font-weight="600" text-anchor="middle">${roomOn?'ROOM':'ROOM OFF'}</text>`;
+if(roomOn){for(let k=0;k<4;k++)g+=`<circle cx="${139+k*14}" cy="162" r="5" fill="${k<4-S[5].v?'var(--grn)':'none'}" stroke="var(--fg)"/>`;
+g+=`<text x="160" y="186" font-size="11" text-anchor="middle">${S[5].q.length?'outside: P'+S[5].q.join(', P'):S[5].v+' seats free'}</text>`}
+$('tbl').innerHTML=g;
+$('chips').innerHTML=P.map((q,i)=>{const[l,c]=status(q);return `<button class="chip${i===cur?' sel':''}" data-p="${i}" style="border-top-color:${c}"><b>P${i}</b>${l}<br>meal ${Math.min(q.r,R)}/${R}</button>`}).join('');
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const p=+b.dataset.p;stop();cur=p;if(P[p].d||P[p].b>=0){add('P'+p,P[p].d?`P${p} has finished all meals.`:`P${p} is asleep in a queue and cannot run until someone does sem_post.`);render()}else run(p)});
+$('sems').innerHTML=S.map((s,i)=>`<tr><td>/${nm(i)}</td><td class="v">${s.v}${i===5?' / 4':''}</td><td>${s.h.length?s.h.map(x=>'P'+x).join(', '):'–'}</td><td>${s.q.length?s.q.map(x=>'P'+x).join(', '):'–'}</td></tr>`).join('');
+const q=P[cur];$('ch').textContent=`Code of P${cur} (left = ${cur}, right = ${(cur+1)%N})`;
+$('code').innerHTML=T.map((t,i)=>{let c='ln';if(!q.d&&i===q.pc)c+=q.b>=0?' blk':' on';if(i===2&&!roomOn||i===9&&!roomOn)c+=' off';return `<span class="${c}">${i+1}  ${t.replace(/</g,'&lt;')}</span>`}).join('');
+$('why').textContent=q.d?'This philosopher is done. All three meals eaten.':(q.b>=0?'Blocked here: ':'Next line: ')+W[q.pc];
+$('log').innerHTML=lg.map(([w,m])=>`<li><span class="k">${w}</span>${m}</li>`).join('');
+const live=pick()>=0,done=P.every(x=>x.d),B=$('banner');
+if(done){B.className='ok';B.textContent=`Finished. Every philosopher ate ${R} times: ${meals} meals in total, and nobody got stuck.`}
+else if(!live){B.className='dead';B.textContent='Deadlock. Every philosopher holds a chopstick and is asleep waiting for the next one. Nobody can post, so nobody will ever wake up. Switch the room on and run it again.'}
+else{B.className='';B.textContent=`Meals eaten: ${meals} of ${N*R}. Chopsticks in use: ${S.slice(0,5).filter(s=>s.h.length).length} of 5. Seats taken in the room: ${roomOn?4-S[5].v:'room is off'}.`}}
+$('bStep').onclick=()=>{stop();tick()};
+$('bPlay').onclick=()=>{if(timer){stop();return}$('bPlay').textContent='Pause';timer=setInterval(()=>{if(pick()<0)stop();tick()},+$('speed').value)};
+$('speed').onchange=()=>{if(timer){stop();$('bPlay').click()}};
+$('bReset').onclick=()=>reset();$('preset').onchange=()=>reset(true);
+$('roomOn').onchange=()=>{const v=$('roomOn').checked;reset();$('roomOn').checked=v;roomOn=v;render()};
+reset();
+</script></body></html>
