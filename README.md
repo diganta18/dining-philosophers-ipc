@@ -26,15 +26,9 @@ The repository also includes a step-by-step browser visualizer, so you can see w
 
  9. [Tests](#tests)
 
-10. [FAQ and viva questions](#faq-and-viva-questions)
+10. [Troubleshooting](#troubleshooting)
 
-11. [Troubleshooting](#troubleshooting)
-
-12. [Limitations and future work](#limitations-and-future-work)
-
-13. [References](#references)
-
-14. [Author](#author)
+11. [Limitations and future work](#limitations-and-future-work)
 
 ## Live visualizer
 
@@ -243,44 +237,6 @@ The full report in `docs/` has the output screenshot for each case.
 | 10 | Run again without `cleanup` after a normal finish | Works, because the values are restored | 
 | 11 | Kill a philosopher while eating | Neighbours block until `cleanup` is run (known limitation) | 
 | 12 | `./cleanup` | All six semaphores removed | 
-
-## FAQ and viva questions
-
-**Why named semaphores?**
-Unrelated processes share no memory, so they need something with a system-wide name to find each other. A named semaphore provides that, and Linux keeps it as a file called `sem.<name>` in `/dev/shm`.
-
-**Aren't the processes created by `fork()` anyway, since the shell starts them?**
-A shell does fork internally to launch any program. The restriction in the problem is about the program: `philosopher.c` never calls `fork()`, and the five processes have no parent-child relationship with each other. For the cleanest demonstration, start them from five separate terminals.
-
-**What does `/room` do, and why is its value 4?**
-It admits at most four philosophers to the chopstick-picking stage. With five chopsticks and at most four competitors, at least one can always get both chopsticks, so the circular wait can never close. A value of 5 gives no protection. A value of 3 also works, but allows less parallelism.
-
-**What happens without `/room`?**
-Deadlock becomes possible: all five take their left chopstick, and each waits for the right one forever. The visualizer shows this with the room switched off.
-
-**Why does every philosopher pick the left chopstick first?**
-It keeps the code simple. It is safe only because `/room` prevents deadlock. Other deadlock-free designs make odd and even philosophers pick in different orders, or number the chopsticks and always pick the lower number first.
-
-**What is the difference between `sem_close` and `sem_unlink`?**
-`sem_close` only closes the semaphore in the calling process. `sem_unlink` removes the named semaphore from the system. That is why `cleanup.c` exists.
-
-**Is the solution starvation-free?**
-It is deadlock-free. A strict starvation guarantee would depend on the order in which the kernel wakes sleeping processes, which is not specified. In the tests every philosopher completed all meals.
-
-**Why is "finished eating" printed before the chopsticks are released?**
-So the log order is truthful. If it were printed after the release, a neighbour could print "EATING" before that line appeared, which would look like two neighbours eating together.
-
-**Why `sleep()`?**
-It simulates thinking and eating time. The thinking time of `1 + id % 3` seconds makes different philosophers hungry at different moments.
-
-**What if a philosopher process is killed mid-meal?**
-It never runs `sem_post`, so its chopsticks and its seat in the room stay taken, and its neighbours wait forever. Run `./cleanup` and start again.
-
-**How would this differ with threads?**
-Threads share memory, so unnamed semaphores (`sem_init`, `sem_destroy`) or mutexes are enough. The philosophers would be created with `pthread_create` and waited for with `pthread_join`, and no cleanup program would be needed.
-
-**Does the visualizer run the C code?**
-No. It is a JavaScript model of the same logic, written so each step matches a line of `philosopher.c`. It is meant for learning, not for measuring real kernel behaviour.
 
 ## Troubleshooting
 
