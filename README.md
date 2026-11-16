@@ -4,7 +4,7 @@ A Linux C simulation of Dijkstra's **Dining Philosophers** problem. The five phi
 
 The repository also includes a step-by-step browser visualizer, so you can see what every semaphore does, line by line, without compiling anything.
 
-> Operating System Lab (PCC-CS592) Mini Project — Techno Main Salt Lake.
+
 
 ## Contents
 
